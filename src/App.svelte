@@ -1,12 +1,18 @@
 <script lang="ts">
 import PortKiller from './lib/PortKiller.svelte'
 import MacosSettings from './lib/MacosSettings.svelte'
+import ManyProcesses from './lib/ManyProcesses.svelte'
 </script>
 
 <main class="container">
   <div class="row">
     <h2>Kill network port</h2>
     <PortKiller />
+  </div>
+
+  <div class="row">
+    <h2>High process count</h2>
+    <ManyProcesses />
   </div>
 
   <div class="row">
@@ -27,7 +33,7 @@ import MacosSettings from './lib/MacosSettings.svelte'
 }
 
 .container > * + * {
-  margin-top: var(--spacing);
+  margin-top: calc(var(--spacing) * 2);
 }
 
 .row {

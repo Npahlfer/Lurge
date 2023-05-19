@@ -13,7 +13,7 @@ edition = "2021"
 tauri-build = { version = "1.2", features = [] }
 
 [dependencies]
-tauri = { version = "1.2", features = ["macos-private-api", "shell-open", "system-tray"] }
+tauri = { version = "1.2", features = ["macos-private-api", "shell-open", "system-tray", "window-set-size"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tauri-plugin-positioner = { version = "1.0.4", features = ["system-tray"] }
@@ -21,6 +21,7 @@ libproc = "0.13.0"
 libc = "0.2.142"
 nix = "0.26.2"
 psutil = "3.2.2"
+dirs = "5.0.1"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem

@@ -1,3 +1,4 @@
+use crate::response::ResponseResult;
 use libproc::libproc::file_info::pidfdinfo;
 use libproc::libproc::file_info::{ListFDs, ProcFDType};
 use libproc::libproc::net_info::{SocketFDInfo, SocketInfoKind};
@@ -8,8 +9,24 @@ use nix::sys::signal::{self, Signal};
 use nix::unistd::Pid;
 use psutil::process::Process;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
-// use serde::{Deserialize, Serialize as SerdeSerialize};
 use std::ffi::CStr;
+
+pub struct ProcessManyInfo {
+    name: String,
+    count: i8,
+}
+
+impl Serialize for ProcessManyInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("ProcessManyInfo", 2)?;
+        s.serialize_field("name", &self.name)?;
+        s.serialize_field("count", &self.count)?;
+        s.end()
+    }
+}
 
 fn get_process_info_list() -> Vec<TaskAllInfo> {
     let mut info_list = Vec::new();
@@ -25,24 +42,62 @@ fn get_process_info_list() -> Vec<TaskAllInfo> {
     info_list
 }
 
-pub struct KillResult {
-    success: bool,
-    error: String,
-}
+pub fn collect_many_process_instances(
+    min_check_value: i8,
+    max_check_value: i8,
+    black_list: Vec<&str>,
+) -> Vec<ProcessManyInfo> {
+    let info_list = get_process_info_list();
+    let mut process_list: Vec<String> = Vec::new();
 
-impl Serialize for KillResult {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("KillResult", 2)?;
-        s.serialize_field("success", &self.success)?;
-        s.serialize_field("error", &self.error)?;
-        s.end()
+    for task in info_list {
+        // let pid = task.pbsd.pbi_pid as i32;
+
+        if let Ok(process) = Process::new(task.pbsd.pbi_pid) {
+            if let Ok(name) = process.name() {
+                process_list.push(name.clone());
+            }
+        }
     }
-}
 
-// fn do_on_socket_kind(task: TaskAllInfo, callback: &dyn Fn(), udp_callback: &dyn Fn())
+    process_list.sort();
+
+    let mut process_many_running: Vec<ProcessManyInfo> = Vec::new();
+
+    for (i, process) in process_list.iter().enumerate() {
+        if black_list.iter().any(|b| b == process) {
+            continue;
+        }
+
+        if process_many_running.iter().any(|p| &p.name == process) {
+            continue;
+        }
+
+        let mut _has_pushed = false;
+        let mut count = 0;
+
+        for j in i..process_list.len() {
+            count += 1;
+
+            if j == process_list.len() - 1
+                || count > max_check_value - 1
+                || !_has_pushed && &process_list[j] != &process_list[j + 1]
+            {
+                if count > min_check_value {
+                    process_many_running.push(ProcessManyInfo {
+                        name: process.clone(),
+                        count,
+                    });
+                }
+
+                _has_pushed = true;
+                break;
+            }
+        }
+    }
+
+    process_many_running
+}
 
 pub fn find_port_by_name(search_value: String) -> Vec<u16> {
     let info_list = get_process_info_list();
@@ -55,7 +110,6 @@ pub fn find_port_by_name(search_value: String) -> Vec<u16> {
             if let Ok(name) = process.name() {
                 if name.starts_with(&search_value) {
                     // TODO dry this up
-                    println!("found process: {}", name);
                     if let Ok(descriptors) =
                         listpidinfo::<ListFDs>(pid, task.pbsd.pbi_nfiles as usize)
                     {
@@ -91,7 +145,7 @@ pub fn find_port_by_name(search_value: String) -> Vec<u16> {
     ports
 }
 
-pub fn process_killer(port_to_kill: u16) -> KillResult {
+pub fn process_killer(port_to_kill: u16) -> ResponseResult<()> {
     let info_list = get_process_info_list();
 
     for task in info_list {
@@ -123,16 +177,17 @@ pub fn process_killer(port_to_kill: u16) -> KillResult {
                                 }
                             }
                             _ => {}
-                        };
+                        }
                     }
                 }
             }
         }
     }
 
-    KillResult {
+    ResponseResult {
         success: false,
         error: "No processes found".to_string(),
+        result: (),
     }
 }
 
@@ -142,19 +197,14 @@ fn get_command_name(task: &TaskAllInfo) -> String {
     unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() }
 }
 
-fn try_to_kill(task: TaskAllInfo) -> KillResult {
+fn try_to_kill(task: TaskAllInfo) -> ResponseResult<()> {
     let command = get_command_name(&task);
-    // let command = if let Some(pbi_comm) = task.pbsd.pbi_comm.as_ref() {
-    //     let bytes = unsafe { std::slice::from_raw_parts(pbi_comm, libc::MAXCOMLEN) };
-    //     String::from_utf8_lossy(bytes).to_string()
-    // } else {
-    //     String::new()
-    // };
 
     if command.starts_with("com.docker") {
-        return KillResult {
+        return ResponseResult {
             success: false,
             error: "Docker process. Stop the container manually".to_string(),
+            result: (),
         };
     } else {
         let pid = Pid::from_raw(task.pbsd.pbi_pid as i32);
@@ -165,9 +215,10 @@ fn try_to_kill(task: TaskAllInfo) -> KillResult {
             "".to_string()
         };
 
-        return KillResult {
+        return ResponseResult {
             success: result,
             error: maybe_error,
+            result: (),
         };
     }
 }

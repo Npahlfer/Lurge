@@ -1,6 +1,8 @@
 <script lang="ts">
 import { invoke } from '@tauri-apps/api/tauri'
 import debounce from '../utils/debounce'
+import updateAppSize from '../utils/updateAppSize'
+import type { ResType } from '../types'
 
 let search = ''
 let port = ''
@@ -11,10 +13,10 @@ async function onSearch() {
   if (search.length === 0) ports = []
   if (search.length < 2) return
 
-  const result: number[] = await invoke('handle_search', {
+  const response: ResType<Number[]> = await invoke('handle_search', {
     search,
   })
-  ports = Array.from(result)
+  ports = Array.from(response.result)
 }
 
 let debouncedOnSearch = debounce(onSearch, 700)
@@ -43,6 +45,8 @@ function handlePortClick(event: MouseEvent) {
   const button = event.target as HTMLButtonElement
   port = button.value
 }
+
+updateAppSize()
 </script>
 
 <div class="root">
@@ -93,14 +97,12 @@ function handlePortClick(event: MouseEvent) {
   gap: var(--spacing);
 }
 
-.searchResultArea {
-  padding: 0 var(--spacing);
-}
-
 .searchSuggestions {
   max-height: 150px;
-  padding: calc(var(--spacing) / 2);
-  padding-left: 0;
+  padding: 4px var(--spacing);
+  border-radius: var(--border-radius);
+  background-color: var(--bg-paper-color);
+
   display: flex;
   flex-direction: column;
   overflow: auto;
@@ -108,9 +110,12 @@ function handlePortClick(event: MouseEvent) {
 
 .searchSuggestions > * + * {
   margin-top: calc(var(--spacing) / 2);
+  border-top: 1px solid var(--divider-color);
 }
 
 .searchSuggestion {
   min-width: 100px;
+  box-shadow: none;
+  border-radius: 0;
 }
 </style>

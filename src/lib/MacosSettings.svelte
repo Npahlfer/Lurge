@@ -2,6 +2,8 @@
 import { onMount, afterUpdate } from 'svelte'
 import { invoke } from '@tauri-apps/api/tauri'
 import debounce from '../utils/debounce'
+import updateAppSize from '../utils/updateAppSize'
+import type { ResType } from '../types'
 import Checkbox from './Checkbox.svelte'
 
 let error = ''
@@ -53,12 +55,6 @@ const handleScreenshotFormatChange = (event: Event) => {
   invoke('set_screenshot_format', { format: select.value })
 }
 
-type ResType<T> = {
-  success: boolean
-  result: T
-  error: string
-}
-
 onMount(async () => {
   const hardDrivesShowRes: ResType<boolean> = await invoke('get_desktop_hard_drives_show')
   const desktopShowRes: ResType<boolean> = await invoke('get_desktop_show')
@@ -78,6 +74,8 @@ afterUpdate(() => {
     }, 3000)
   }
 })
+
+updateAppSize()
 </script>
 
 <form class="root">
