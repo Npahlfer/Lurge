@@ -2,8 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::{
-    CustomMenuItem, LogicalSize, Manager, Size, SystemTray, SystemTrayEvent, SystemTrayMenu,
-    SystemTrayMenuItem,
+    CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
 };
 use tauri_plugin_positioner::{Position, WindowExt};
 
@@ -22,27 +21,21 @@ use shell_commands::{
 
 fn read_defaults(option: DefaultsReadOption) -> ResponseResult<ResponseValue> {
     match execute_defaults_read_cmd(option) {
-        DefaultsReturnType::String(r) => {
-            return ResponseResult {
-                success: true,
-                error: "".to_string(),
-                result: ResponseValue::String(r),
-            }
-        }
-        DefaultsReturnType::Bool(r) => {
-            return ResponseResult {
-                success: true,
-                error: "".to_string(),
-                result: ResponseValue::Bool(r),
-            }
-        }
-        DefaultsReturnType::Error(r) => {
-            return ResponseResult {
-                success: false,
-                error: r,
-                result: ResponseValue::Bool(false),
-            }
-        }
+        DefaultsReturnType::String(r) => ResponseResult {
+            success: true,
+            error: "".to_string(),
+            result: ResponseValue::String(r),
+        },
+        DefaultsReturnType::Bool(r) => ResponseResult {
+            success: true,
+            error: "".to_string(),
+            result: ResponseValue::Bool(r),
+        },
+        DefaultsReturnType::Error(r) => ResponseResult {
+            success: false,
+            error: r,
+            result: ResponseValue::Bool(false),
+        },
     }
 }
 
@@ -50,33 +43,31 @@ fn write_defaults(option: DefaultsWriteOption) -> ResponseResult<ResponseValue> 
     match execute_defaults_write_cmd(option) {
         DefaultsReturnType::String(r) => {
             let mut error = "".to_string();
-            if let Err(_) = relaunch_finder() {
+            if relaunch_finder().is_err() {
                 error = "Failed to relaunch Finder".to_string();
             }
-            return ResponseResult {
+            ResponseResult {
                 success: true,
                 result: ResponseValue::String(r),
                 error,
-            };
+            }
         }
         DefaultsReturnType::Bool(r) => {
             let mut error = "".to_string();
-            if let Err(_) = relaunch_finder() {
+            if relaunch_finder().is_err() {
                 error = "Failed to relaunch Finder".to_string();
             }
-            return ResponseResult {
+            ResponseResult {
                 success: true,
                 result: ResponseValue::Bool(r),
                 error,
-            };
-        }
-        DefaultsReturnType::Error(r) => {
-            return ResponseResult {
-                success: false,
-                error: r,
-                result: ResponseValue::Bool(false),
             }
         }
+        DefaultsReturnType::Error(r) => ResponseResult {
+            success: false,
+            error: r,
+            result: ResponseValue::Bool(false),
+        },
     }
 }
 
@@ -106,7 +97,7 @@ fn set_screenshot_format(format: String) -> ResponseResult<ResponseValue> {
 fn get_screenshot_directory() -> ResponseResult<ResponseValue> {
     let ResponseResult { result, error, .. } =
         read_defaults(DefaultsReadOption::ScreenshotDirectory);
-    if error != "" {
+    if !error.is_empty() {
         return ResponseResult {
             success: false,
             error,
@@ -205,8 +196,6 @@ fn main() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
-            let window = app.get_window("main").unwrap();
-            window.show().unwrap();
             Ok(())
         })
         .plugin(tauri_plugin_positioner::init())
@@ -217,6 +206,7 @@ fn main() {
                 SystemTrayEvent::LeftClick { .. } => {
                     let window = app.get_window("main").unwrap();
                     let _ = window.move_window(Position::TrayCenter);
+
                     if window.is_visible().unwrap() {
                         window.hide().unwrap();
                     } else {
@@ -228,22 +218,18 @@ fn main() {
                     "quit" => {
                         std::process::exit(0);
                     }
+                    "update" => {}
                     _ => {}
                 },
                 _ => {}
             }
         })
-        .on_window_event(|event| match event.event() {
-            tauri::WindowEvent::Focused(is_focused) => {
+        .on_window_event(|event| {
+            if let tauri::WindowEvent::Focused(is_focused) = event.event() {
                 if !is_focused {
-                    // event.window().hide().unwrap();
+                    event.window().hide().unwrap();
                 }
             }
-            // tauri::WindowEvent::CloseRequested { api, .. } => {
-            //     event.window().hide().unwrap();
-            //     api.prevent_close();
-            // }
-            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             proc_kill,

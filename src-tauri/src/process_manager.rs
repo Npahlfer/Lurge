@@ -81,7 +81,7 @@ pub fn collect_many_process_instances(
 
             if j == process_list.len() - 1
                 || count > max_check_value - 1
-                || !_has_pushed && &process_list[j] != &process_list[j + 1]
+                || !_has_pushed && process_list[j] != process_list[j + 1]
             {
                 if count > min_check_value {
                     process_many_running.push(ProcessManyInfo {
@@ -201,11 +201,11 @@ fn try_to_kill(task: TaskAllInfo) -> ResponseResult<()> {
     let command = get_command_name(&task);
 
     if command.starts_with("com.docker") {
-        return ResponseResult {
+        ResponseResult {
             success: false,
             error: "Docker process. Stop the container manually".to_string(),
             result: (),
-        };
+        }
     } else {
         let pid = Pid::from_raw(task.pbsd.pbi_pid as i32);
         let result = kill_process(pid);
@@ -215,16 +215,16 @@ fn try_to_kill(task: TaskAllInfo) -> ResponseResult<()> {
             "".to_string()
         };
 
-        return ResponseResult {
+        ResponseResult {
             success: result,
             error: maybe_error,
             result: (),
-        };
+        }
     }
 }
 
 fn kill_process(pid: Pid) -> bool {
-    if let Err(_) = signal::kill(pid, Signal::SIGKILL) {
+    if signal::kill(pid, Signal::SIGKILL).is_err() {
         return false;
     }
 

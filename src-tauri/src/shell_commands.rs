@@ -63,7 +63,7 @@ pub fn execute_defaults_write_cmd(option: DefaultsWriteOption) -> DefaultsReturn
 }
 
 pub fn relaunch_finder() -> Result<(), &'static str> {
-    if let Err(_) = Command::new("killall").arg("Finder").status() {
+    if Command::new("killall").arg("Finder").status().is_err() {
         return Err("Failed to execute killall command");
     }
 
@@ -88,9 +88,10 @@ pub fn execute_defaults_read(uri: &str, arg: &str) -> DefaultsReturnType {
 }
 
 pub fn execute_defaults_write<'a>(uri: &'a str, args: Vec<&'a str>) -> DefaultsReturnType {
-    if let Err(_) = Command::new("defaults")
+    if Command::new("defaults")
         .args(["write", uri].iter().chain(args.iter()))
         .output()
+        .is_err()
     {
         DefaultsReturnType::Error("Failed to execute defaults write command".to_string())
     } else {
